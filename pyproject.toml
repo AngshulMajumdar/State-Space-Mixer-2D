@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ssmix2d"
+version = "0.1.0"
+description = "Training-free 2-D (time x frequency) scale-space transformers on Daubechies wavelets: a cross-scale mixer and an audio embedder"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Angshul Majumdar" }]
+dependencies = ["torch>=2.0", "torchaudio>=2.0", "numpy>=1.22", "mpmath>=1.2"]
+keywords = ["wavelets", "Daubechies", "scale space", "training-free", "audio embeddings", "token mixer", "time-frequency"]
+
+[project.optional-dependencies]
+test = ["pytest>=7", "PyWavelets>=1.4"]
+hub = ["huggingface_hub>=0.20"]
+benchmarks = ["scikit-learn>=1.2", "pandas>=1.5", "soundfile>=0.12"]
+
+[project.urls]
+Homepage = "https://github.com/AngshulMajumdar/State-Space-Mixer-2D"
+Documentation = "https://angshulmajumdar.github.io/State-Space-Mixer-2D/"
+Demo = "https://huggingface.co/spaces/Angshul/ssmix2d-audio-embedder"
+
+[tool.setuptools]
+packages = ["ssmix2d"]

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview · ssmix2d</title>
+<meta name="description" content="ssmix2d: training-free time-frequency transformers on Daubechies wavelets.">
+<link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+<header><div class="bar"><a class="brand" href="index.html">ss<span>mix</span>2d</a>
+<nav><a href="index.html" class=on>Overview</a><a href="article.html">Article</a><a href="method.html">Method</a><a href="api.html">API</a><a href="benchmarks.html">Benchmarks</a><a class="gh" href="https://github.com/AngshulMajumdar/State-Space-Mixer-2D">GitHub</a></nav></div></header>
+<main>
+
+<h1>Training-free time–frequency transformers on Daubechies wavelets</h1>
+<p class=lead>ssmix2d mixes audio jointly across time and frequency with exact multiscale operators: a separable
+2-D Daubechies tight frame over (time, mel), and a cross-scale attention mixer in which every coefficient attends to
+its siblings, parents and children along both axes. Nothing is trained.</p>
+
+<div class=cards>
+<div class=card><b>ESC-50, linear probe</b><span class=big>76.0%</span><br><span class=note>no training · ahead of the 1-D ssmix, the hand-crafted sets, ComParE, VGGish and wav2vec 2.0</span></div>
+<div class=card><b>Unseen speakers</b><span class=big>+3.8</span><br><span class=note>points over the 1-D ssmix on FSDD, leave one speaker out</span></div>
+<div class=card><b>Zero parameters</b><span class=big>0</span><br><span class=note>no weights, no data, no fine-tuning; exact reconstruction (error below 10<sup>−14</sup>)</span></div>
+</div>
+
+<h2>Install</h2>
+<pre><code>pip install git+https://github.com/AngshulMajumdar/State-Space-Mixer-2D</code></pre>
+<p>Try it in the browser: <a href="https://huggingface.co/spaces/Angshul/ssmix2d-audio-embedder">live demo on Hugging Face Spaces</a>. The 1-D predecessor is
+<a href="https://github.com/AngshulMajumdar/State-Space-Mixer">State-Space-Mixer</a>.</p>
+<p>Requires Python ≥ 3.9, PyTorch ≥ 2.0, torchaudio, NumPy and mpmath.</p>
+
+<h2>Embed audio in three lines</h2>
+<pre><code>from ssmix2d import AudioEmbedder2D
+
+emb = AudioEmbedder2D()                                # no weights to download
+E = emb.embed(waves, sample_rate=44100, length=5.0)    # list of 1-D arrays -> (N, D) numpy</code></pre>
+<p>Inputs are resampled to 32 kHz. With <code>length</code> every clip is padded or cut to the same
+duration, so all embeddings share one dimension. Use the embeddings with any linear model, k-NN or clustering.</p>
+
+<h2>Use the 2-D mixer as a layer</h2>
+<pre><code>import torch
+from ssmix2d import CrossScaleMixer2D
+
+X = torch.randn(8, 500, 128)                           # (batch, time, frequency)
+mixer = CrossScaleMixer2D(order=4, freq_order=2, window=2, tau=0.1)
+Y = mixer(X)                                           # same shape, cross-scale attention on both axes
+
+W, plan = mixer.coefficients(X)                        # (8, S, R, nt, nf): every time scale x every frequency scale
+assert torch.allclose(mixer.synthesize(W, plan), X, atol=1e-4)   # exact round trip</code></pre>
+
+<h2>What is inside</h2>
+<table>
+<tr><th>Object</th><th>Role</th></tr>
+<tr><td><a href="api.html#AudioEmbedder2D"><code>AudioEmbedder2D</code></a></td><td>Training-free audio transformer: log-mel → 2-D cross-scale mixer blocks → pooled scale-space readout.</td></tr>
+<tr><td><a href="api.html#CrossScaleMixer2D"><code>CrossScaleMixer2D</code></a></td><td>Cross-scale attention on the separable 2-D Daubechies tight frame; shift-equivariant in time.</td></tr>
+<tr><td><a href="api.html#ScaleSpaceMixer"><code>ScaleSpaceMixer</code></a></td><td>FFT-batched 1-D Daubechies tight frame for any length: the building block of each axis.</td></tr>
+<tr><td><a href="api.html#daubechies"><code>daubechies</code></a></td><td>Daubechies filters of any order, built from scratch by spectral factorisation.</td></tr>
+</table>
+<p>The full write-up is the <a href="article.html">article</a>; the construction is on <a href="method.html">Method</a>
+and the measurements on <a href="benchmarks.html">Benchmarks</a>.</p>
+
+</main>
+<footer><div class="bar"><span>ssmix2d 0.1.0 · Angshul Majumdar</span><a href="https://github.com/AngshulMajumdar/State-Space-Mixer-2D">github.com/AngshulMajumdar/State-Space-Mixer-2D</a></div></footer>
+</body>
+</html>

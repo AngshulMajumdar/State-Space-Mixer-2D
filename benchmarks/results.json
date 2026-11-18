@@ -1,0 +1,227 @@
+{
+ "esc50": {
+  "ssmix2d": {
+   "folds": [
+    72.8,
+    76.2,
+    79.2,
+    76.5,
+    75.5
+   ],
+   "mean": 76.0,
+   "std": 2.1
+  },
+  "ssmix": {
+   "folds": [
+    75.0,
+    72.5,
+    75.5,
+    74.8,
+    75.5
+   ],
+   "mean": 74.6,
+   "std": 1.1
+  },
+  "vggish": {
+   "folds": [
+    72.8,
+    70.5,
+    72.0,
+    71.2,
+    68.5
+   ],
+   "mean": 71.0,
+   "std": 1.5
+  },
+  "handcrafted_all": {
+   "folds": [
+    73.8,
+    74.5,
+    72.5,
+    77.8,
+    71.2
+   ],
+   "mean": 73.9,
+   "std": 2.2
+  },
+  "compare": {
+   "folds": [
+    69.5,
+    72.0,
+    71.2,
+    75.5,
+    67.8
+   ],
+   "mean": 71.2,
+   "std": 2.6
+  },
+  "wav2vec2": {
+   "folds": [
+    67.5,
+    65.2,
+    65.8,
+    75.8,
+    67.8
+   ],
+   "mean": 68.4,
+   "std": 3.8
+  },
+  "librosa": {
+   "folds": [
+    52.0,
+    52.0,
+    47.8,
+    59.2,
+    50.2
+   ],
+   "mean": 52.3,
+   "std": 3.8
+  },
+  "scattering": {
+   "folds": [
+    48.8,
+    46.8,
+    50.7,
+    57.5,
+    50.0
+   ],
+   "mean": 50.7,
+   "std": 3.6
+  },
+  "egemaps": {
+   "folds": [
+    51.2,
+    52.0,
+    46.8,
+    53.5,
+    49.5
+   ],
+   "mean": 50.6,
+   "std": 2.3
+  },
+  "gfcc": {
+   "folds": [
+    45.8,
+    46.2,
+    49.8,
+    50.5,
+    41.0
+   ],
+   "mean": 46.7,
+   "std": 3.4
+  },
+  "random_transformer": {
+   "folds": [
+    46.8,
+    42.8,
+    47.0,
+    46.8,
+    41.5
+   ],
+   "mean": 45.0,
+   "std": 2.3
+  },
+  "mfcc": {
+   "folds": [
+    44.5,
+    41.5,
+    44.2,
+    49.0,
+    44.0
+   ],
+   "mean": 44.6,
+   "std": 2.4
+  },
+  "logmel": {
+   "folds": [
+    41.5,
+    38.5,
+    44.2,
+    47.8,
+    42.2
+   ],
+   "mean": 42.9,
+   "std": 3.1
+  },
+  "cqt": {
+   "folds": [
+    35.5,
+    35.5,
+    40.0,
+    42.5,
+    33.5
+   ],
+   "mean": 37.4,
+   "std": 3.3
+  }
+ },
+ "fsdd": {
+  "ssmix2d": 99.7,
+  "ssmix": 99.0,
+  "vggish": 62.0,
+  "scattering": 96.3,
+  "random_transformer": 98.3,
+  "mfcc": 95.7,
+  "logmel": 97.0,
+  "passt": 98.0,
+  "efficientat_mn10": 98.7,
+  "librosa": 97.3,
+  "wav2vec2": 97.0,
+  "gfcc": 95.3,
+  "cqt": 89.3,
+  "egemaps": 89.0,
+  "panns": 85.7
+ },
+ "fsdd_speakers": {
+  "ssmix2d": {
+   "per_speaker": {
+    "george": 71.0,
+    "jackson": 77.6,
+    "lucas": 80.6,
+    "nicolas": 49.6,
+    "theo": 79.2,
+    "yweweler": 73.2
+   },
+   "mean": 71.9
+  },
+  "ssmix": {
+   "per_speaker": {
+    "george": 72.4,
+    "jackson": 71.4,
+    "lucas": 76.0,
+    "nicolas": 40.0,
+    "theo": 74.4,
+    "yweweler": 74.6
+   },
+   "mean": 68.1
+  }
+ },
+ "speed": {
+  "rows": [
+   [
+    1024,
+    43.2,
+    941.6,
+    1239.0
+   ],
+   [
+    2048,
+    78.4,
+    2144.3,
+    4736.8
+   ],
+   [
+    4096,
+    162.3,
+    3453.9,
+    18613.5
+   ]
+  ],
+  "db1": 35.9,
+  "db4": 45.9,
+  "db16": 52.6,
+  "esc50_seconds": 2697,
+  "env": "CPU, 2 threads, torch 2.11; 128 mel bins; frame J_t = 6, J_f = 5"
+ },
+ "baselines_source": "https://github.com/AngshulMajumdar/State-Space-Mixer (benchmarks/results.json), same caches and probe"
+}

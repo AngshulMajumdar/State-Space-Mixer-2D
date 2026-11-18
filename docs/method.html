@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Method · ssmix2d</title>
+<meta name="description" content="ssmix2d: training-free time-frequency transformers on Daubechies wavelets.">
+<link rel="stylesheet" href="style.css">
+<script>window.MathJax={tex:{inlineMath:[["\\(","\\)"]]}};</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</head>
+<body>
+<header><div class="bar"><a class="brand" href="index.html">ss<span>mix</span>2d</a>
+<nav><a href="index.html">Overview</a><a href="article.html">Article</a><a href="method.html" class=on>Method</a><a href="api.html">API</a><a href="benchmarks.html">Benchmarks</a><a class="gh" href="https://github.com/AngshulMajumdar/State-Space-Mixer-2D">GitHub</a></nav></div></header>
+<main>
+
+<h1>Method</h1>
+<p class=lead>Three exact building blocks: Daubechies filters of controllable support on each axis, a separable
+tight frame over time and frequency, and a parameter-free cross-scale attention that moves along both axes.</p>
+
+<h2>1. Daubechies filters of any order</h2>
+<p>Order \(N\) gives \(N\) vanishing moments and support \(2N-1\). The lowpass filter is obtained from
+\(|H(\omega)|^2 = 2\cos^{2N}(\omega/2)\,P(\sin^2(\omega/2))\) with
+\(P(y)=\sum_{k\lt N}\binom{N-1+k}{k}y^k\), by spectral factorisation at high precision. The highpass is
+\(g[n] = (-1)^n h[L-1-n]\). The time axis and the frequency axis each get their own order.</p>
+
+<h2>2. A separable tight frame over time and frequency</h2>
+<p>Along one axis, the undecimated, delay-aligned Daubechies frame has band responses \(\Psi_s(\omega)\),
+\(s=0,\dots,J\), with \(\sum_s|\Psi_s(\omega)|^2=1\) (the sum telescopes because \(|\tilde H|^2+|\tilde G|^2=1\)).
+For a field \(X(t,f)\) the 2-D bands are the products</p>
+<p>\[ \Psi_{s,r}(\omega_t,\omega_f)=\Psi_s(\omega_t)\,\Phi_r(\omega_f),\qquad
+\sum_{s,r}|\Psi_{s,r}|^2=\Big(\sum_s|\Psi_s|^2\Big)\Big(\sum_r|\Phi_r|^2\Big)=1 , \]</p>
+<p>so the 2-D frame is Parseval-tight and its adjoint is the exact inverse. Every time scale is paired with every
+frequency scale, so a fine time scale can meet a coarse frequency scale (a transient with a broad spectrum) and
+vice versa (a slowly varying, narrow-band partial). Both axes are computed with batched FFTs on the DFT grid, at a
+cost that does not depend on the filter supports.</p>
+
+<h2>3. Cross-scale attention along both axes</h2>
+<p>Tokens are coefficient vectors over \(g\) consecutive frequency bins: \(w_{s,r}(t,b)\in\mathbb R^g\) for band
+\((s,r)\), instant \(t\) and bin group \(b\). Token \((s,r,t,b)\) attends to</p>
+<p>\[ \mathcal N=\{(s',r,\,t+o\,2^{\ell(s')},\,b) : s'\in\{s-1,s,s+1\}\}\ \cup\
+\{(s,r',\,t,\,b\text{ shifted by }o\,2^{\ell(r')}\text{ bins}) : r'\in\{r-1,r,r+1\}\},\quad |o|\le k , \]</p>
+<p>its siblings, parents and children along time and along frequency (\(\ell\) is the dyadic level of a band). With
+per-token cosine weights</p>
+<p>\[ a_n=\operatorname{softmax}_{n\in\mathcal N}\frac{\langle\hat w_{s,r}(t,b),\hat w_n\rangle}{\tau},\qquad
+w'_{s,r}(t,b)=\sum_{n\in\mathcal N}a_n\,w_n , \]</p>
+<p>followed by the exact 2-D synthesis. Every key is normalised over its own bins after shifting, so frequency
+shifts that are not multiples of \(g\) are exact. The operator has no parameters. It is shift-equivariant in time
+(and in frequency for shifts by multiples of \(g\)) and 1-homogeneous, and it tends to the identity as \(\tau\to0\).
+With \(k=2\) a token has at most \(1+14+14=29\) keys. Memory is \(O(SR\,TF)\) and work \(O(29\,SR\,TF)\):
+linear in duration.</p>
+
+<h2>4. Audio embedder</h2>
+<p><code>AudioEmbedder2D</code> runs at 32 kHz with 128 mel bands (25 ms window, 10 ms hop) and per-clip
+normalisation. Two 2-D cross-scale mixer blocks follow: db4 along time, db2 along mel, 8-bin tokens, \(k=2\),
+\(\tau=0.1\). For each block, the readout pools over time:</p>
+<ul>
+<li>the magnitude of every time × frequency band, per mel bin, before and after mixing;</li>
+<li>the mean attention weight of every link and bin group: how strongly each band couples to its neighbours
+in time scale and in frequency scale;</li>
+<li>the state statistics.</li>
+</ul>
+<p>The mean log-mel envelope is appended once, at the end. All settings are inherited unchanged from the 1-D
+ssmix, whose configuration was chosen on development splits only.</p>
+
+</main>
+<footer><div class="bar"><span>ssmix2d 0.1.0 · Angshul Majumdar</span><a href="https://github.com/AngshulMajumdar/State-Space-Mixer-2D">github.com/AngshulMajumdar/State-Space-Mixer-2D</a></div></footer>
+</body>
+</html>

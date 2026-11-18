@@ -1,0 +1,48 @@
+:root { --ink:#1b1f24; --muted:#5b6470; --line:#e3e6ea; --bg:#ffffff; --soft:#f6f7f9; --accent:#0b6e69; --code:#f3f5f7; }
+* { box-sizing: border-box; }
+html { font-size: 16px; }
+body { margin:0; color:var(--ink); background:var(--bg);
+       font: 1rem/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+header { border-bottom:1px solid var(--line); background:var(--bg); position:sticky; top:0; z-index:10; }
+.bar { max-width:920px; margin:0 auto; padding:0.9rem 1.25rem; display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap; }
+.brand { font-weight:700; letter-spacing:0.01em; color:var(--ink); text-decoration:none; font-size:1.1rem; }
+.brand span { color:var(--accent); }
+nav { display:flex; flex:1; flex-wrap:wrap; align-items:center; }
+nav a { color:var(--muted); text-decoration:none; margin-right:1.1rem; font-size:0.95rem; }
+nav a.on, nav a:hover { color:var(--accent); }
+nav a.gh { margin-left:auto; }
+main { max-width:920px; margin:0 auto; padding:2rem 1.25rem 4rem; }
+h1 { font-size:2rem; line-height:1.25; margin:0.5rem 0 0.75rem; }
+h2 { font-size:1.35rem; margin:2.4rem 0 0.6rem; padding-top:0.4rem; border-top:1px solid var(--line); }
+h3 { font-size:1.08rem; margin:1.6rem 0 0.4rem; }
+p, li { color:var(--ink); }
+.lead { font-size:1.12rem; color:var(--muted); max-width:44rem; }
+a { color:var(--accent); }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size:0.88rem; }
+code { background:var(--code); padding:0.1rem 0.3rem; border-radius:4px; }
+pre { background:var(--code); padding:0.9rem 1rem; border-radius:8px; overflow-x:auto; line-height:1.5; }
+pre code { background:none; padding:0; }
+table { border-collapse:collapse; width:100%; margin:0.8rem 0 1.2rem; font-size:0.95rem; }
+th, td { text-align:left; padding:0.45rem 0.6rem; border-bottom:1px solid var(--line); }
+th { color:var(--muted); font-weight:600; background:var(--soft); }
+td.num, th.num { text-align:right; font-variant-numeric: tabular-nums; }
+tr.ours td { font-weight:600; background:#eef7f6; }
+.cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:0.9rem; margin:1.4rem 0; }
+.card { border:1px solid var(--line); border-radius:10px; padding:0.9rem 1rem; background:var(--soft); }
+.card b { display:block; margin-bottom:0.2rem; }
+.card .big { font-size:1.6rem; font-weight:700; color:var(--accent); }
+.note { color:var(--muted); font-size:0.92rem; }
+.api-item { border:1px solid var(--line); border-radius:10px; padding:0.2rem 1.1rem 0.8rem; margin:1.2rem 0; }
+.api-item h3 { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:1rem; }
+.sig { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.85rem; color:var(--muted);
+       white-space:pre-wrap; word-break:break-word; margin:0 0 0.6rem; }
+.doc { white-space:pre-wrap; background:none; padding:0; margin:0.2rem 0 0.6rem; font-size:0.86rem; }
+.method { margin-left:0.6rem; padding-left:0.9rem; border-left:3px solid var(--line); }
+.toc { columns:2; font-size:0.95rem; }
+.paper .authors { color:var(--muted); margin:-0.2rem 0 1.2rem; }
+.abstract { background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:1rem 1.2rem; margin:1rem 0 1.5rem; }
+.caption { color:var(--muted); font-size:0.9rem; margin-top:-0.6rem; }
+ol.refs li { font-size:0.92rem; margin-bottom:0.35rem; }
+footer { border-top:1px solid var(--line); color:var(--muted); font-size:0.85rem; }
+footer .bar { justify-content:space-between; }
+@media (max-width:640px) { h1 { font-size:1.6rem; } .toc { columns:1; } nav a.gh { margin-left:0; } }

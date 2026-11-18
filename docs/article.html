@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Article · ssmix2d</title>
+<meta name="description" content="ssmix2d: training-free time-frequency transformers on Daubechies wavelets.">
+<link rel="stylesheet" href="style.css">
+<script>window.MathJax={tex:{inlineMath:[["\\(","\\)"]]}};</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</head>
+<body>
+<header><div class="bar"><a class="brand" href="index.html">ss<span>mix</span>2d</a>
+<nav><a href="index.html">Overview</a><a href="article.html" class=on>Article</a><a href="method.html">Method</a><a href="api.html">API</a><a href="benchmarks.html">Benchmarks</a><a class="gh" href="https://github.com/AngshulMajumdar/State-Space-Mixer-2D">GitHub</a></nav></div></header>
+<main>
+
+<article class=paper>
+<h1>ssmix2d: Training-Free Time–Frequency Transformers for Audio on Daubechies Wavelets</h1>
+<p class=authors>Angshul Majumdar · Indraprastha Institute of Information Technology Delhi</p>
+
+<div class=abstract><b>Abstract.</b>
+Sound is structured along two axes at once: events unfold in time, and their identity lives in how energy is
+arranged across frequency. We present ssmix2d, an audio transformer with no learnable parameters whose token mixer
+works on both axes jointly. The representation is a separable Daubechies frame over time and mel frequency, which
+pairs every time scale with every frequency scale; it is Parseval-tight, so reconstruction is exact. On this frame,
+every coefficient attends to its dyadic siblings, parents and children along time and along frequency through
+parameter-free cosine attention. With a linear probe on frozen embeddings, ssmix2d reaches 76.0% on ESC-50,
+ahead of its time-only predecessor (74.6%), the concatenation of eight hand-crafted feature sets
+(73.9%), openSMILE ComParE (71.2%), VGGish (71.0%) and wav2vec 2.0 (68.4%). On spoken
+digits it reaches 99.7%, and on speakers never seen by the probe it improves on the time-only model by
+3.8 points. Nothing is learned, which makes the model a natural starting point for low-resource audio.</div>
+
+<h2>1. Introduction</h2>
+<p>A transformer is a token mixer plus a readout. In audio, the mixer is usually learned from large corpora, and
+that is exactly what low-resource settings lack. The 1-D ssmix [1] showed that the mixer can instead be an exact
+operator: attention over a Daubechies wavelet frame along time, with no parameters. But it mixed only along time.
+Each mel channel was a passive coordinate of the token, and frequency structure entered only through the readout.</p>
+<p>Frequency is not a passive coordinate. A change of speaker moves formants and pitch along the mel axis; a
+transient spreads energy across many bands at once; a harmonic sound is a regular pattern across frequency at
+several scales. A mixer that can relate a coefficient to its frequency neighbours, at the right scale, sees these
+structures directly. Because Daubechies wavelets are separable, the extension costs nothing in exactness: the
+tensor product of two tight frames is a tight frame.</p>
+<p><b>Contributions.</b></p>
+<ol>
+<li>A separable 2-D Daubechies tight frame over time and mel frequency with independent supports on each axis,
+computed with batched FFTs and inverted exactly.</li>
+<li>A parameter-free 2-D cross-scale attention: every coefficient attends to its siblings, parents and children
+along both axes. It is shift-equivariant in time, 1-homogeneous, exactly the identity in its zero-temperature limit,
+and linear in duration.</li>
+<li>A training-free audio embedder that, with every setting inherited from the 1-D model, improves on it for
+environmental sound, spoken digits and unseen speakers, and is ahead of the established hand-crafted and
+pretrained baselines under an identical linear probe.</li>
+</ol>
+
+<h2>2. Related work</h2>
+<p>Multiresolution spectrotemporal analysis [2] models auditory cortex as a bank of filters tuned jointly to
+temporal rate and spectral scale. Joint time–frequency scattering [3] builds an invariant representation from
+wavelets along both axes of a scalogram. Both are fixed cascades; ssmix2d instead mixes coefficients through
+data-dependent attention across scales of both axes. Separable 2-D wavelet frames go back to Mallat's
+multiresolution analysis [4]. FNet [5] and WaveMix [6] replace attention with Fourier and wavelet operators but keep
+learned layers. The standard training-free baselines are hand-crafted descriptors, from MFCCs to openSMILE eGeMAPS
+[7] and ComParE [8]; the standard learned ones are pretrained embedders such as VGGish [9], wav2vec 2.0 [10],
+PANNs [11], PaSST [12] and EfficientAT [13].</p>
+
+<h2>3. Method</h2>
+<h3>3.1 Daubechies filters</h3>
+<p>Order \(N\) gives \(N\) vanishing moments and support \(2N-1\) [14]. The lowpass filter comes from
+\(|H(\omega)|^2 = 2\cos^{2N}(\omega/2)\,P(\sin^2(\omega/2))\), \(P(y)=\sum_{k\lt N}\binom{N-1+k}{k}y^k\), by
+spectral factorisation with high-precision roots; the highpass is \(g[n]=(-1)^n h[L-1-n]\). The time and frequency
+axes have independent orders.</p>
+
+<h3>3.2 The separable tight frame</h3>
+<p>Along one axis, the undecimated transform has band responses</p>
+<p>\[ D_j(\omega)=\tilde G(2^{j-1}\omega)\prod_{k\lt j-1}\tilde H(2^k\omega),\qquad
+A_J(\omega)=\prod_{k\lt J}\tilde H(2^k\omega),\qquad \tilde H=H/\sqrt2,\ \tilde G=G/\sqrt2 , \]</p>
+<p>and \(\sum_s|\Psi_s(\omega)|^2=1\) by telescoping. Each band is shifted by its integer group delay (a pure phase),
+so an index refers to the same position at every scale. For a field \(X(t,f)\), with \(\Psi_s\) along time
+(\(J_t\) levels) and \(\Phi_r\) along frequency (\(J_f\) levels), the bands are</p>
+<p>\[ W_{s,r}=\mathcal F^{-1}\big[\Psi_s(\omega_t)\,\Phi_r(\omega_f)\,\hat X\big],\qquad
+\sum_{s=0}^{J_t}\sum_{r=0}^{J_f}|\Psi_s(\omega_t)\,\Phi_r(\omega_f)|^2=1 . \]</p>
+<p><b>Proposition 1.</b> The analysis operator is an isometry, \(\sum_{s,r}\|W_{s,r}\|^2=\|X\|^2\), and its adjoint
+\(X=\sum_{s,r}\mathcal F^{-1}[\overline{\Psi_s\Phi_r}\,\hat W_{s,r}]\) is its exact inverse. <i>Proof.</i> By
+Parseval, \(\sum_{s,r}\|W_{s,r}\|^2=\sum_{\omega}|\hat X|^2\sum_{s,r}|\Psi_s\Phi_r|^2=\|X\|^2\); applying the adjoint
+multiplies \(\hat X\) by the same sum, which is 1. ∎ Boundaries are handled by reflection padding to an
+FFT-friendly length on each axis, and the result is cropped after synthesis.</p>
+
+<h3>3.3 Cross-scale attention along both axes</h3>
+<p>Tokens are coefficient vectors over \(g\) consecutive frequency bins. Token \((s,r,t,b)\) attends to the
+neighbourhood made of (i) bands \(s'\in\{s-1,s,s+1\}\) of the same frequency scale at time offsets
+\(o\,2^{\ell(s')}\), and (ii) bands \(r'\in\{r-1,r,r+1\}\) of the same time scale at frequency offsets
+\(o\,2^{\ell(r')}\) bins, with \(|o|\le k\). These are its siblings, parents and children along each axis, on the
+dyadic grid of the decimated tree but without decimation. With per-token cosine scores at temperature \(\tau\),</p>
+<p>\[ a_n=\operatorname{softmax}_{n\in\mathcal N}\frac{\langle\hat w_{s,r}(t,b),\hat w_n\rangle}{\tau},\qquad
+w'_{s,r}(t,b)=\sum_{n\in\mathcal N}a_n\,w_n , \]</p>
+<p>followed by the exact synthesis of Proposition 1.</p>
+<p><b>Proposition 2.</b> The mixer has no parameters and (a) is 1-homogeneous, \(M(cX)=cM(X)\) for \(c\gt0\);
+(b) commutes with circular shifts in time, and with circular shifts in frequency by multiples of \(g\);
+(c) tends to the identity as \(\tau\to0\) at every token with no other key parallel to it; (d) is a convex combination per token, so
+\(\|w'\|\le\max_{n}\|w_n\|\). <i>Proof.</i> (a) Cosine scores are scale-invariant and values are linear.
+(b) The frame is shift-equivariant, and the neighbourhood is defined by relative offsets. (c) Each token has cosine
+1 with itself and strictly less with every non-parallel key, so the softmax concentrates on itself. (d) The weights
+are non-negative and sum to one. ∎</p>
+<p>With \(k=2\) a token has at most 29 keys. Keys are never materialised as a separate tensor; key norms after a
+frequency shift come from a sliding-window sum of squares, so arbitrary bin shifts are exact. Memory is
+\(O(SR\,TF)\) and work \(O(29\,SR\,TF)\), linear in duration.</p>
+
+<h3>3.4 The embedder</h3>
+<p>Audio at 32 kHz becomes a 128-band log-mel sequence (25 ms windows, 10 ms hop), normalised per clip. Two 2-D
+blocks follow (db4 along time, db2 along mel, 8-bin tokens, \(k=2\), \(\tau=0.1\)). For each block the readout pools
+over time: the magnitude of every time × frequency band per mel bin, before and after mixing; the mean attention
+weight of every link and bin group; and the state statistics. The mean log-mel envelope is appended. Every setting
+is inherited from the 1-D ssmix, whose configuration was chosen on development splits only; nothing was tuned for
+the 2-D model.</p>
+
+<h2>4. Experiments</h2>
+<h3>4.1 Protocol</h3>
+<p>Every model produces a frozen clip embedding, and one probe is used throughout: standardisation followed by
+multinomial logistic regression, with C chosen from \(\{10^{-3},10^{-2},10^{-1},1\}\) by 3-fold cross-validation
+inside each training split. ESC-50 [15] uses its official 5-fold cross-validation. FSDD [16] uses its official split
+and, to measure generalisation to new voices, leave-one-speaker-out over its six speakers. Baselines are those of
+the State-Space-Mixer suite, run on the same prepared audio with the same probe.</p>
+
+<h3>4.2 Environmental sound (ESC-50)</h3>
+<table><tr><th>Model</th><th>Pretraining</th><th class=num>Accuracy (%)</th></tr><tr class=ours><td>ssmix2d AudioEmbedder2D (time × frequency)</td><td>none</td><td class=num>76.0 ± 2.1</td></tr><tr><td>ssmix AudioEmbedder (1-D, time only)</td><td>none</td><td class=num>74.6 ± 1.1</td></tr><tr><td>All eight hand-crafted sets, concatenated</td><td>none</td><td class=num>73.9 ± 2.2</td></tr><tr><td>openSMILE ComParE 2016 (6,373 functionals)</td><td>none</td><td class=num>71.2 ± 2.6</td></tr><tr><td>VGGish</td><td>YouTube-8M</td><td class=num>71.0 ± 1.5</td></tr><tr><td>wav2vec 2.0 base (all layers, mean-pooled)</td><td>LibriSpeech 960 h</td><td class=num>68.4 ± 3.8</td></tr><tr><td>librosa ESC bundle (MFCC, Δ, chroma, contrast, tonnetz, spectral)</td><td>none</td><td class=num>52.3 ± 3.8</td></tr><tr><td>Wavelet scattering, orders 0–2 (kymatio, J=9, Q=8)</td><td>none</td><td class=num>50.7 ± 3.6</td></tr><tr><td>openSMILE eGeMAPS v02 (88 functionals)</td><td>none</td><td class=num>50.6 ± 2.3</td></tr><tr><td>Gammatone cepstral coefficients + Δ</td><td>none</td><td class=num>46.7 ± 3.4</td></tr><tr><td>Random-init Transformer (4 layers, d=256)</td><td>none</td><td class=num>45.0 ± 2.3</td></tr><tr><td>MFCC + Δ, mean/std</td><td>none</td><td class=num>44.6 ± 2.4</td></tr><tr><td>Log-mel, mean/std</td><td>none</td><td class=num>42.9 ± 3.1</td></tr><tr><td>Constant-Q spectrum, mean/std</td><td>none</td><td class=num>37.4 ± 3.3</td></tr></table>
+<p class=caption>Table 1. ESC-50, 5-fold mean ± std. Hand-crafted sets, ssmix and ssmix2d use no training data.</p>
+<table><tr><th>Model</th><th class=num>Fold 1</th><th class=num>Fold 2</th><th class=num>Fold 3</th><th class=num>Fold 4</th>
+<th class=num>Fold 5</th><th class=num>Folds won by ssmix2d</th></tr><tr class=ours><td>ssmix2d AudioEmbedder2D</td><td class=num>72.8</td><td class=num>76.2</td><td class=num>79.2</td><td class=num>76.5</td><td class=num>75.5</td><td class=num>—</td></tr><tr><td>wav2vec 2.0 base</td><td class=num>67.5</td><td class=num>65.2</td><td class=num>65.8</td><td class=num>75.8</td><td class=num>67.8</td><td class=num>5/5</td></tr><tr><td>openSMILE ComParE 2016</td><td class=num>69.5</td><td class=num>72.0</td><td class=num>71.2</td><td class=num>75.5</td><td class=num>67.8</td><td class=num>5/5</td></tr><tr><td>VGGish</td><td class=num>72.8</td><td class=num>70.5</td><td class=num>72.0</td><td class=num>71.2</td><td class=num>68.5</td><td class=num>4/5 (1 tied)</td></tr></table>
+<p class=caption>Table 2. Per-fold accuracy.</p>
+<p>Adding the frequency axis to the mixer raises ESC-50 from 74.6% to 76.0% with no new setting. ssmix2d is
+ahead of wav2vec 2.0 and openSMILE ComParE on every fold, and of the 7,519-dimensional concatenation of all eight
+hand-crafted sets on average.</p>
+
+<h3>4.3 Spoken digits and unseen speakers (FSDD)</h3>
+<table><tr><th>Model</th><th>Pretraining</th><th class=num>Accuracy (%)</th></tr><tr class=ours><td>ssmix2d AudioEmbedder2D (time × frequency)</td><td>none</td><td class=num>99.7</td></tr><tr><td>ssmix AudioEmbedder (1-D, time only)</td><td>none</td><td class=num>99.0</td></tr><tr><td>EfficientAT MobileNet mn10</td><td>AudioSet</td><td class=num>98.7</td></tr><tr><td>Random-init Transformer (4 layers, d=256)</td><td>none</td><td class=num>98.3</td></tr><tr><td>PaSST-S</td><td>AudioSet</td><td class=num>98.0</td></tr><tr><td>librosa ESC bundle (MFCC, Δ, chroma, contrast, tonnetz, spectral)</td><td>none</td><td class=num>97.3</td></tr><tr><td>Log-mel, mean/std</td><td>none</td><td class=num>97.0</td></tr><tr><td>wav2vec 2.0 base (all layers, mean-pooled)</td><td>LibriSpeech 960 h</td><td class=num>97.0</td></tr><tr><td>Wavelet scattering, orders 0–2 (kymatio, J=9, Q=8)</td><td>none</td><td class=num>96.3</td></tr><tr><td>MFCC + Δ, mean/std</td><td>none</td><td class=num>95.7</td></tr><tr><td>Gammatone cepstral coefficients + Δ</td><td>none</td><td class=num>95.3</td></tr><tr><td>Constant-Q spectrum, mean/std</td><td>none</td><td class=num>89.3</td></tr><tr><td>openSMILE eGeMAPS v02 (88 functionals)</td><td>none</td><td class=num>89.0</td></tr><tr><td>PANNs CNN14</td><td>AudioSet</td><td class=num>85.7</td></tr><tr><td>VGGish</td><td>YouTube-8M</td><td class=num>62.0</td></tr></table>
+<p class=caption>Table 3. FSDD, official split.</p>
+<table><tr><th>Model</th><th class=num>Accuracy (%)</th></tr><tr class=ours><td>ssmix2d AudioEmbedder2D (time × frequency)</td><td class=num>71.9</td></tr><tr><td>ssmix AudioEmbedder (1-D, time only)</td><td class=num>68.1</td></tr></table>
+<p class=caption>Table 4. FSDD, leave one speaker out (mean over the six held-out speakers).</p>
+<p>On the official split ssmix2d reaches 99.7%, ahead of the AudioSet-trained PaSST and EfficientAT and of
+wav2vec 2.0. On unseen speakers it improves on the time-only model by 3.8 points. This is the effect the
+design targets: a new voice moves formants and pitch along the mel axis, and the 2-D mixer couples each coefficient
+to its neighbours across frequency scales.</p>
+
+<h3>4.4 Exactness and cost</h3>
+<p>The 2-D frame reconstructs with error below \(10^{-14}\) in float64, and the implementation matches a direct evaluation of the
+attention to \(10^{-12}\). On a 2-thread CPU, the mixer processes 4,096 frames (40.96 s of audio) in
+3,453.9 ms, 5.4× faster than parameter-free softmax attention over the same tokens, and its cost grows
+linearly with duration.</p>
+
+<h2>5. Conclusion</h2>
+<p>A transformer's token mixer need not be learned, and it need not be one-dimensional. A separable Daubechies frame
+gives an exact time–frequency scale space, and attention defined on its tree along both axes gives an audio embedder
+with zero parameters that improves on its time-only predecessor on every benchmark: environmental sound, spoken
+digits and, most of all, unseen speakers. It needs no data at all, which makes it a natural starting point for low-resource corpora.</p>
+
+<h2>Reproducibility</h2>
+<p>Code, tests and benchmark scripts: <a href="https://github.com/AngshulMajumdar/State-Space-Mixer-2D">github.com/AngshulMajumdar/State-Space-Mixer-2D</a>. Live demo:
+<a href="https://huggingface.co/spaces/Angshul/ssmix2d-audio-embedder">Hugging Face Space</a>. Every number on this page is read from
+<code>benchmarks/results.json</code>.</p>
+
+<h2>References</h2>
+<ol class=refs>
+<li>A. Majumdar. ssmix: Training-free scale-space transformers for audio on Daubechies wavelets. GitHub: AngshulMajumdar/State-Space-Mixer, 2026.</li>
+<li>T. Chi, P. Ru and S. A. Shamma. Multiresolution spectrotemporal analysis of complex sounds. <i>Journal of the Acoustical Society of America</i>, 118(2), 2005.</li>
+<li>J. Andén, V. Lostanlen and S. Mallat. Joint time–frequency scattering. <i>IEEE Transactions on Signal Processing</i>, 67(14), 2019.</li>
+<li>S. Mallat. A theory for multiresolution signal decomposition: the wavelet representation. <i>IEEE Transactions on Pattern Analysis and Machine Intelligence</i>, 11(7), 1989.</li>
+<li>J. Lee-Thorp, J. Ainslie, I. Eckstein and S. Ontañón. FNet: Mixing tokens with Fourier transforms. <i>NAACL</i>, 2022.</li>
+<li>P. Jeevan and A. Sethi. WaveMix: Resource-efficient token mixing for images. arXiv:2203.03689, 2022.</li>
+<li>F. Eyben et al. The Geneva minimalistic acoustic parameter set (GeMAPS) for voice research and affective computing. <i>IEEE Transactions on Affective Computing</i>, 7(2), 2016.</li>
+<li>B. Schuller et al. The INTERSPEECH 2016 computational paralinguistics challenge. <i>Interspeech</i>, 2016.</li>
+<li>S. Hershey et al. CNN architectures for large-scale audio classification. <i>ICASSP</i>, 2017.</li>
+<li>A. Baevski, H. Zhou, A. Mohamed and M. Auli. wav2vec 2.0: A framework for self-supervised learning of speech representations. <i>NeurIPS</i>, 2020.</li>
+<li>Q. Kong et al. PANNs: Large-scale pretrained audio neural networks for audio pattern recognition. <i>IEEE/ACM TASLP</i>, 28, 2020.</li>
+<li>K. Koutini, J. Schlüter, H. Eghbal-zadeh and G. Widmer. Efficient training of audio transformers with patchout. <i>Interspeech</i>, 2022.</li>
+<li>F. Schmid, K. Koutini and G. Widmer. Efficient large-scale audio tagging via transformer-to-CNN knowledge distillation. <i>ICASSP</i>, 2023.</li>
+<li>I. Daubechies. Orthonormal bases of compactly supported wavelets. <i>Communications on Pure and Applied Mathematics</i>, 41(7), 1988.</li>
+<li>K. J. Piczak. ESC: Dataset for environmental sound classification. <i>ACM Multimedia</i>, 2015.</li>
+<li>Z. Jackson et al. Free Spoken Digit Dataset. GitHub: Jakobovski/free-spoken-digit-dataset, 2018.</li>
+</ol>
+</article>
+
+</main>
+<footer><div class="bar"><span>ssmix2d 0.1.0 · Angshul Majumdar</span><a href="https://github.com/AngshulMajumdar/State-Space-Mixer-2D">github.com/AngshulMajumdar/State-Space-Mixer-2D</a></div></footer>
+</body>
+</html>

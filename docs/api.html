@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API · ssmix2d</title>
+<meta name="description" content="ssmix2d: training-free time-frequency transformers on Daubechies wavelets.">
+<link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+<header><div class="bar"><a class="brand" href="index.html">ss<span>mix</span>2d</a>
+<nav><a href="index.html">Overview</a><a href="article.html">Article</a><a href="method.html">Method</a><a href="api.html" class=on>API</a><a href="benchmarks.html">Benchmarks</a><a class="gh" href="https://github.com/AngshulMajumdar/State-Space-Mixer-2D">GitHub</a></nav></div></header>
+<main>
+<h1>API reference</h1>
+<p class=lead>Everything below is importable from <code>ssmix2d</code>. All modules are parameter-free <code>torch.nn.Module</code>s that run on CPU or CUDA. <code>CrossScaleMixer2D</code> takes <code>(batch, time, frequency)</code>; <code>ScaleSpaceMixer</code> takes <code>(batch, tokens, channels)</code>.</p>
+<ul class=toc><li><a href="#AudioEmbedder2D"><code>AudioEmbedder2D</code></a></li><li><a href="#CrossScaleMixer2D"><code>CrossScaleMixer2D</code></a></li><li><a href="#ScaleSpaceMixer"><code>ScaleSpaceMixer</code></a></li><li><a href="#daubechies"><code>daubechies</code></a></li><li><a href="#daubechies_lowpass"><code>daubechies_lowpass</code></a></li><li><a href="#qmf_highpass"><code>qmf_highpass</code></a></li></ul>
+<div class="api-item" id="AudioEmbedder2D"><h3>class AudioEmbedder2D</h3>
+<p class="sig">ssmix2d.AudioEmbedder2D(depth: int = 2, sample_rate: int = 32000, n_mels: int = 128, order: int = 4, freq_order: int = 2, levels: Optional[int] = None, freq_levels: Optional[int] = None, group: int = 8, window: int = 2, tau: float = 0.1, readout: Sequence[str] = (&#x27;bands&#x27;, &#x27;stats&#x27;, &#x27;mixed&#x27;, &#x27;attn&#x27;, &#x27;env&#x27;))</p>
+<pre class="doc">Training-free audio transformer that mixes jointly across time and frequency.
+
+Pipeline:
+    log-mel spectrogram (25 ms window, 10 ms hop)  -&gt;  per-clip normalisation
+    depth x [ separable Daubechies tight frame over (time, mel)
+              -&gt; 2-D cross-scale attention (time and frequency siblings, parents, children)
+              -&gt; exact synthesis ]
+    readout of every block, pooled over time.
+
+The model has no learnable parameters and needs no training data.
+
+Args:
+    depth:        number of mixer blocks.
+    sample_rate:  rate the model operates at; `embed` resamples inputs to it.
+    n_mels:       mel bands.
+    order:        Daubechies order along time (support 2N-1).
+    freq_order:   Daubechies order along the mel axis.
+    levels:       time levels J_t (None: chosen from the clip length).
+    freq_levels:  mel-axis levels J_f (None: chosen from n_mels).
+    group:        mel bins per attention token (a divisor of 16).
+    window:       sibling half-width k on each axis.
+    tau:          attention temperature.
+    readout:      subset of (&quot;bands&quot;, &quot;stats&quot;, &quot;mixed&quot;, &quot;attn&quot;, &quot;env&quot;).
+
+Readout terms (per block unless noted):
+    bands  log mean_t |W_{s,r}| before mixing, per time band s, mel band r and mel bin
+    stats  mean_t and std_t of the normalised log-mel state (also once after the last block)
+    mixed  log mean_t |W&#x27;_{s,r}| after mixing
+    attn   mean_t attention weight per band, link and mel group
+    env    mean log-mel spectrum before normalisation (once, appended last)
+
+Example:
+    &gt;&gt;&gt; emb = AudioEmbedder2D()
+    &gt;&gt;&gt; E = emb.embed([wave_a, wave_b], sample_rate=44100, length=5.0)   # (2, D) numpy array</pre>
+<div class="method"><p class="sig"><b>save_pretrained</b>(self, directory: str) -&gt; str</p><pre class="doc">Write config.json to `directory` (there are no weights). Returns the file path.</pre></div>
+<div class="method"><p class="sig"><b>logmel</b>(self, wav: torch.Tensor)</p><pre class="doc">(B, N) waveforms -&gt; per-clip normalised log-mel (B, T, n_mels) and the mean log-mel envelope (B, n_mels).</pre></div>
+<div class="method"><p class="sig"><b>forward</b>(self, wav: torch.Tensor) -&gt; torch.Tensor</p><pre class="doc">Embed a batch of equal-length waveforms.
+
+Args:
+    wav: (B, N) float tensor at `sample_rate`, values in [-1, 1].
+Returns:
+    (B, D) embedding.</pre></div>
+<div class="method"><p class="sig"><b>from_logmel</b>(self, X: torch.Tensor, env: Optional[torch.Tensor] = None) -&gt; torch.Tensor</p><pre class="doc">Readout from a normalised log-mel (B, T, n_mels); `env` is appended when given and requested.</pre></div>
+<div class="method"><p class="sig"><b>dim</b>(self, num_samples: int) -&gt; int</p><pre class="doc">Embedding dimension for clips of `num_samples` samples at `sample_rate`.</pre></div>
+<div class="method"><p class="sig"><b>embed</b>(self, audio: Union[numpy.ndarray, torch.Tensor, Iterable[Union[numpy.ndarray, torch.Tensor]]], sample_rate: Optional[int] = None, batch_size: int = 4, length: Optional[float] = None) -&gt; numpy.ndarray</p><pre class="doc">Embed one clip, a batch, or a list of clips of any lengths.
+
+Args:
+    audio:       1-D waveform, (B, N) array/tensor, or a list of 1-D waveforms (mono, [-1, 1]).
+    sample_rate: rate of `audio`; resampled to `self.sample_rate` when different.
+    batch_size:  clips per forward pass.
+    length:      if given, every clip is zero-padded or cut to this many seconds, so all
+                 embeddings share one dimension. Without it, clips of different lengths
+                 can have different embedding sizes (the number of time levels follows
+                 the clip length).
+Returns:
+    (B, D) float32 numpy array (rows in input order).</pre></div>
+</div>
+<div class="api-item" id="CrossScaleMixer2D"><h3>class CrossScaleMixer2D</h3>
+<p class="sig">ssmix2d.CrossScaleMixer2D(order: int = 4, freq_order: int = 2, levels: Optional[int] = None, freq_levels: Optional[int] = None, group: int = 8, window: int = 2, tau: float = 0.1, pad: str = &#x27;reflect&#x27;)</p>
+<pre class="doc">Parameter-free cross-scale attention on the separable 2-D Daubechies tight frame.
+
+Args:
+    order:        Daubechies order along time (support 2*order - 1).
+    freq_order:   Daubechies order along frequency.
+    levels:       time levels J_t (None: as many as fit the length).
+    freq_levels:  frequency levels J_f (None: as many as fit the number of bins).
+    group:        frequency bins per token (a divisor of 16).
+    window:       half-width k of the sibling neighbourhood on each axis.
+    tau:          attention temperature (tau -&gt; 0 is the identity).
+    pad:          boundary handling of both frames, &quot;reflect&quot; or &quot;circular&quot;.
+
+Input and output: (B, T, F) real tensors.</pre>
+<div class="method"><p class="sig"><b>coefficients</b>(self, X: torch.Tensor)</p><pre class="doc">(B, T, F) -&gt; padded coefficients W (B, S, R, nt, nf) and the plan needed for synthesis.</pre></div>
+<div class="method"><p class="sig"><b>synthesize</b>(self, W: torch.Tensor, plan: dict) -&gt; torch.Tensor</p><pre class="doc">Padded coefficients (B, S, R, nt, nf) -&gt; (B, T, F) by the tight-frame adjoint (exact inverse).</pre></div>
+<div class="method"><p class="sig"><b>valid</b>(self, plan: dict)</p><pre class="doc">Slices of the padded grid holding the input&#x27;s own samples: (time slice, frequency slice).</pre></div>
+<div class="method"><p class="sig"><b>links</b>(self, S: int, R: int) -&gt; Dict[Tuple[int, int], List[Tuple[int, int, int, int]]]</p><pre class="doc">Key list of every band (s, r): [(s&#x27;, r&#x27;, time shift, frequency shift)], self first.</pre></div>
+<div class="method"><p class="sig"><b>mix</b>(self, W: torch.Tensor) -&gt; torch.Tensor</p><pre class="doc">One synchronous cross-scale attention update of padded coefficients (B, S, R, nt, nf).
+
+Every key is normalised over its own `group` bins after shifting (key norms come from a sliding
+window sum of squares), so frequency shifts that are not multiples of `group` are exact.
+Attention weights are kept in `last_attention[(s, r)]` as (B, links, nt, groups), or, if `att_crop`
+= (t0, t1, g0, g1) is set, as their mean over t0:t1 restricted to groups g0:g1 (B, links, g1 - g0).</pre></div>
+<div class="method"><p class="sig"><b>forward</b>(self, X: torch.Tensor) -&gt; torch.Tensor</p><pre class="doc">(B, T, F) -&gt; (B, T, F): 2-D analysis, one cross-scale attention update, exact synthesis.</pre></div>
+</div>
+<div class="api-item" id="ScaleSpaceMixer"><h3>class ScaleSpaceMixer</h3>
+<p class="sig">ssmix2d.ScaleSpaceMixer(order: Optional[int] = 4, support: Optional[int] = None, levels: Optional[int] = None, heads: int = 1, rule: str = &#x27;attention&#x27;, tau: float = 1.0, kappa: float = 1.0, pad: str = &#x27;reflect&#x27;, delay_compensation: bool = True, fast_fft: bool = True, pad_tol: float = 1e-08, eps: float = 1e-12)</p>
+<pre class="doc">Undecimated Daubechies tight frame (FFT-batched, any T) with parameter-free gate rules.
+
+Args:
+    order:     Daubechies order N (N vanishing moments, support 2N-1).
+    support:   alternative to `order`; must be odd (= 2N-1).
+    levels:    number of detail levels J (None -&gt; as many as fit T, max 10).
+    heads:     channel groups sharing one scale-attention pattern.
+    rule:      &#x27;attention&#x27; | &#x27;shrink&#x27; | &#x27;identity&#x27;.
+    tau:       attention temperature.
+    kappa:     energy-smoothing width, in units of each band&#x27;s dyadic scale.
+    pad:       &#x27;reflect&#x27; (no wrap-around artefacts) or &#x27;circular&#x27;.
+    delay_compensation: align bands in time (pure phase; keeps PR).
+    fast_fft:  extend padded length to a 5-smooth FFT size.
+    pad_tol:   reflect padding covers all but this fraction of every band&#x27;s
+               impulse-response energy (PR is exact for any value).
+Input/Output: (B, T, C).</pre>
+<div class="method"><p class="sig"><b>num_levels</b>(self, T: int) -&gt; int</p><pre class="doc">Detail levels J used for length T (the `levels` argument, or as many as fit, at most 10).</pre></div>
+<div class="method"><p class="sig"><b>analysis</b>(self, x: torch.Tensor) -&gt; torch.Tensor</p><pre class="doc">(B, T, C) -&gt; (B, J+1, T, C) band coefficients (on the unpadded grid).</pre></div>
+<div class="method"><p class="sig"><b>synthesis</b>(self, W: torch.Tensor) -&gt; torch.Tensor</p><pre class="doc">Adjoint of `analysis` in circular mode; (B, J+1, T, C) -&gt; (B, T, C).
+(In reflect mode use forward(); W here lives on the unpadded grid.)</pre></div>
+<div class="method"><p class="sig"><b>gates</b>(self, x: torch.Tensor) -&gt; torch.Tensor</p><pre class="doc">Gate field (B, J+1, T, C) the mixer applies to x (for inspection).</pre></div>
+<div class="method"><p class="sig"><b>forward</b>(self, x: torch.Tensor) -&gt; torch.Tensor</p><pre class="doc">(B, T, C) -&gt; (B, T, C): analysis, gate rule, synthesis (rule=&#x27;identity&#x27; returns x).</pre></div>
+</div>
+<div class="api-item" id="daubechies"><h3>function daubechies</h3>
+<p class="sig">ssmix2d.daubechies(order: int)</p>
+<pre class="doc">(h, g): orthonormal Daubechies lowpass and highpass filters of the given order (2*order taps).
+Identical to PyWavelets dbN rec_lo / rec_hi.</pre>
+</div>
+<div class="api-item" id="daubechies_lowpass"><h3>function daubechies_lowpass</h3>
+<p class="sig">ssmix2d.daubechies_lowpass(order: int) -&gt; numpy.ndarray</p>
+<pre class="doc">Orthonormal lowpass h (sum h = sqrt 2, sum h^2 = 1), length 2*order.</pre>
+</div>
+<div class="api-item" id="qmf_highpass"><h3>function qmf_highpass</h3>
+<p class="sig">ssmix2d.qmf_highpass(h: numpy.ndarray) -&gt; numpy.ndarray</p>
+<pre class="doc">g[n] = (-1)^n h[L-1-n]  (PyWavelets rec_hi convention).</pre>
+</div>
+</main>
+<footer><div class="bar"><span>ssmix2d 0.1.0 · Angshul Majumdar</span><a href="https://github.com/AngshulMajumdar/State-Space-Mixer-2D">github.com/AngshulMajumdar/State-Space-Mixer-2D</a></div></footer>
+</body>
+</html>
